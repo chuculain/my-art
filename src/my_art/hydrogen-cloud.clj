@@ -150,36 +150,42 @@
         (assoc :samples samples))))
 
 (defn clamp-quantum-counters [n l m]
-  [(int (clamp n 0 8))
-   (int (clamp l 0 8))
-   (int (clamp m 0 8))])
+  (let [n' (int (clamp n 1 8))
+        l' (int (clamp l 0 (dec n')))
+        m' (int (clamp m 0 l'))]
+    [n' l' m']))
 
 (defn step-counters-up [n l m]
+  ;; Navigate through valid states: m steps 0..l, then l steps 0..(n-1), then n
   (cond
-    (< m 8) [n l (inc m)]
-    (< l 8) [n (inc l) 0]
-    (< n 8) [(inc n) 0 0]
-    :else [8 8 8]))
+    (< m l)         [n l (inc m)]
+    (< l (dec n))   [n (inc l) 0]
+    (< n 8)         [(inc n) 0 0]
+    :else           [n l m]))
 
 (defn step-counters-down [n l m]
+  ;; Reverse: decrement m, then roll back l to its max m, then roll back n
   (cond
-    (> m 0) [n l (dec m)]
-    (> l 0) [n (dec l) 8]
-    (> n 0) [(dec n) 8 8]
-    :else [0 0 0]))
+    (> m 0)  [n l (dec m)]
+    (> l 0)  (let [l' (dec l)] [n l' l'])
+    (> n 1)  (let [n' (dec n) l' (dec n')] [n' l' l'])
+    :else    [n l m]))
 
 (defn sampling-quantum-state [state]
-  (let [raw-n (:n state)
-        raw-l (:l state)
-        raw-m (:m state)
-        n (max 1 raw-n)
-        l (int (clamp raw-l 0 (dec n)))
-        m (int (clamp raw-m (- l) l))]
+  ;; clamp-quantum-counters already enforces valid states; this is a safety net
+  (let [n (int (clamp (:n state) 1 8))
+        l (int (clamp (:l state) 0 (dec n)))
+        m (int (clamp (:m state) 0 l))]
     [n l m]))
+
+(defn rmax-for-n [n a0]
+  ;; Orbital extent scales as n². Factor of 5 covers >99% of radial probability.
+  (* (max 8.0 (* 5.0 n n)) a0))
 
 (defn with-quantum-counters [state n l m]
   (let [[n l m] (clamp-quantum-counters n l m)
-        sample-state (assoc state :n n :l l :m m)
+        rmax    (rmax-for-n n (:a0 state))
+        sample-state (assoc state :n n :l l :m m :rmax rmax)
         [sn sl sm] (sampling-quantum-state sample-state)
         samples (sample-cloud sn
                              sl
@@ -279,7 +285,7 @@
     (let [[sn sl sm] (sampling-quantum-state state)]
       (q/text (str "render state -> n=" sn " l=" sl " m=" sm) outer-pad stats-y))
     (q/text (str "samples=" (count (:samples state)) "  resample=every frame") outer-pad controls-y)
-    (q/text "UP/DOWN: m->l->n (0..8) with reverse on DOWN" outer-pad (+ controls-y 18.0))
+    (q/text "UP: next valid (n,l,m)  DOWN: prev valid (n,l,m)  n=1..8" outer-pad (+ controls-y 18.0))
 
     (doseq [{:keys [rot label col row]} views]
       (let [panel-x (+ outer-pad (* col (+ panel-w gap)))
