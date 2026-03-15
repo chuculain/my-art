@@ -1,18 +1,10 @@
 # my-art
 
-A Quil sketch designed to ... well, that part is up to you.
+A collection of generative art experiments in Clojure using Quil.
 
 ## Usage
 
-LightTable - open `core.clj` and press `Ctrl+Shift+Enter` to evaluate the file.
-
-Emacs - run cider, open `core.clj` and press `C-c C-k` to evaluate the file.
-
-REPL - run `(require 'my-art.core)`.
 
 ## License
-
-Copyright © 2016 FIXME
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Copyright © 2026
+Distributed under the MIT license. 
