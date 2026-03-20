@@ -103,22 +103,30 @@
 (defn clamp-quantum-counters [n l m]
   (let [n' (int (clamp n 1 8))
         l' (int (clamp l 0 (dec n')))
-        m' (int (clamp m 0 l'))]
+        m' (int (clamp m (- l') l'))]
     [n' l' m']))
 
 (defn step-counters-up [n l m]
   (cond
+    ;; Traverse all m values for current l from -l to +l.
     (< m l)         [n l (inc m)]
-    (< l (dec n))   [n (inc l) 0]
+    ;; Then move to next l and start its m-range at -l.
+    (< l (dec n))   (let [l' (inc l)] [n l' (- l')])
+    ;; Then advance to next n and restart at 1s (l=0,m=0).
     (< n 8)         [(inc n) 0 0]
     :else           [n l m]))
 
 (defn step-counters-down [n l m]
   (cond
-    (> m 0)  [n l (dec m)]
-    (> l 0)  (let [l' (dec l)] [n l' l'])
-    (> n 1)  (let [n' (dec n) l' (dec n')] [n' l' l'])
-    :else    [n l m]))
+    ;; Traverse all m values for current l from +l down to -l.
+    (> m (- l)) [n l (dec m)]
+    ;; Then move to previous l and land on its max m (+l).
+    (> l 0)      (let [l' (dec l)] [n l' l'])
+    ;; Then move to previous n and land on its final state (l=n-1,m=+l).
+    (> n 1)      (let [n' (dec n)
+                       l' (dec n')]
+                   [n' l' l'])
+    :else        [n l m]))
 
 (defn rmax-for-n [n a0]
   (* (max 8.0 (* 5.0 n n)) a0))
@@ -299,7 +307,7 @@
     (q/text "Hydrogen Orbital Probability Density" outer-pad title-y)
     (q/text-size 14)
     (q/text (str "n=" (:n state) "  l=" (:l state) "  m=" (:m state)
-                 "    (UP: next state  DOWN: prev state  n=1..8)")
+            "    (UP: next state  DOWN: prev state  n=1..8, m=-l..+l)")
             outer-pad sub-y)
     (q/text "Each panel: 2D cross-section through nucleus, rotated around Y axis"
             outer-pad ctrl-y)
